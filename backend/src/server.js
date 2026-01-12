@@ -6,7 +6,7 @@ import { serve } from "inngest/express"
 // file imports
 import { ENV } from './lib/env.js';
 import { connectDB } from './lib/db.js';
-import { inngest } from './lib/inngest.js';
+import { inngest, functions } from './lib/inngest.js';
 
 const app = express();
 const __dirname = path.resolve();
