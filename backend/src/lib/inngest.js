@@ -1,6 +1,7 @@
 import { Inngest } from "inngest";
 import { connectDB } from "./db.js";
 import User from "../models/User.js"
+import { deleteStreamUser, upsertStreamUser } from "./stream.js";
 
 export const inngest = new Inngest({ id: "remote-codify" });
 
@@ -8,18 +9,29 @@ const syncUser = inngest.createFunction(
   { id: "sync-user" },
   { event: "clerk/user.created" },
   async ({ event }) => {
-    await connectDB();
+    try {
+      await connectDB();
 
-    const { id, email_addresses, first_name, last_name, image_url } = event.data;
+      const { id, email_addresses, first_name, last_name, image_url } = event.data;
 
-    const newUser = new User({
-      clerkId: id,
-      email: email_addresses[0]?.email_address,
-      name: `${first_name || ""} ${last_name || ""}`.trim(),
-      profileImage: image_url || "",
-    })
+      const newUser = new User({
+        clerkId: id,
+        email: email_addresses[0]?.email_address,
+        name: `${first_name || ""} ${last_name || ""}`.trim(),
+        profileImage: image_url || "",
+      })
 
-    await User.create(newUser);
+      await User.create(newUser);
+
+      // Stream user upsert
+      await upsertStreamUser({
+        id: newUser.clerkId.toString(),
+        name: newUser.name,
+        image: newUser.profileImage,
+      })
+    } catch (error) {
+      console.error("Error in syncUser function:", error);
+    }
   }
 )
 
@@ -27,11 +39,18 @@ const deleteUserFromDatabase = inngest.createFunction(
   { id: "delete-user-from-database" },
   { event: "clerk/user.deleted" },
   async ({ event }) => {
-    await connectDB();
+    try {
+      await connectDB();
 
-    const { id } = event.data;
+      const { id } = event.data;
 
-    await User.deleteOne({ clerkId: id });
+      await User.deleteOne({ clerkId: id });
+
+      // Stream user delete
+      await deleteStreamUser(id.toString());
+    } catch (error) {
+      console.error("Error in deleteUserFromDatabase function:", error);
+    }
   }
 )
 
