@@ -22,8 +22,16 @@ export const upsertStreamUser = async (userData) => {
 export const deleteStreamUser = async (userId) => {
   try {
     await chatClient.deleteUser(userId);
-    console.log('Stream user deleted successfully:', userId);
+    console.log("Stream user deleted:", userId);
   } catch (error) {
-    console.error('Error deleting Stream user:', error);
+    // Stream returns 404 if user does not exist — this is OK
+    if (error.status === 404 || error.code === 16) {
+      console.log("Stream user not found, skipping delete:", userId);
+      return;
+    }
+
+    // Real error → log it
+    console.error("Unexpected Stream delete error:", error);
+    throw error;
   }
-}
+};
